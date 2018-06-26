@@ -81,7 +81,6 @@ def get_connector_addresses(profile, region, version):
         {'Name': 'tag:Name', 'Values': [ec2_prefix+"*"]},
         {'Name': 'instance-state-name', 'Values': ['running']}
     ]
-    print json.dumps(filters, indent=4)
     session = boto3.Session(profile_name=profile, region_name=region)
     ec2 = session.resource('ec2')
 
