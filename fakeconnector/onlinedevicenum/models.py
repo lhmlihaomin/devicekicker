@@ -5,6 +5,7 @@ from django.db import models
 import threading
 import time
 import json
+import random
 
 
 class DeviceNum(models.Model):
@@ -12,6 +13,7 @@ class DeviceNum(models.Model):
     _timestamp = 0.0
     _closing = False
     _lock = threading.Lock()
+    _batch = 0
 
     @classmethod
     def set_num(cls, num):
@@ -20,10 +22,11 @@ class DeviceNum(models.Model):
             cls._num = num
             
     @classmethod
-    def initiate_close_all(cls):
+    def initiate_close_all(cls, batch):
         with cls._lock:
             cls._closing = True
             cls._timestamp = time.time()
+            cls._batch = batch
 
     @classmethod
     def get_num(cls):
@@ -34,7 +37,7 @@ class DeviceNum(models.Model):
             return cls._num
         else:
             period = time.time() - cls._timestamp
-            num = cls._num - int(period) * 100
+            num = cls._num - int(period) * cls._batch
             if num < 0:
                 cls._num = 0
                 cls._closing = False
