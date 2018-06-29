@@ -3,9 +3,9 @@
 #
 # usage: connector_autoclose.py [-h] [-p PROFILE] [-r REGION]
 #                               [-m MODULE_VERSION] [-e ELB [ELB ...]]
-# 
+#
 # Close connector device connections.
-# 
+#
 # optional arguments:
 #   -h, --help            show this help message and exit
 #   -p PROFILE, --profile PROFILE
@@ -32,8 +32,9 @@ BATCH_SIZE = 1800000
 
 # CN: stat_url_format = ???
 stat_url_format = "http://{IP}:{PORT}/jolokia/read/{MODULE_NAME}:name=StatJmx/stat"
+
 # CN: close_url_format = "http://${IP}:{PORT}/jolokia/exec/${MODULE_NAME}:name=DeviceManager/closeAll/${BATCH_SIZE}"
-close_url_format = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{BATCH_SIZE}/{SLEEP_MS}"
+close_url_format = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/1000"
 
 
 class Connector(object):
@@ -48,15 +49,16 @@ class Connector(object):
         for tag in instance.tags:
             if tag['Key'].lower() == 'name':
                 self.name = tag['Value']
-        
+
     def get_online_device_number(self):
         url = stat_url_format.format(IP=self.ip, PORT=PORT, MODULE_NAME=MODULE_NAME)
         response = requests.get(url)
         result = json.loads(response.text)
-        #self.device_num = result['value']['stat']['onlineDeviceNum']
-        self.device_num = result['value']['stat.onlineDeviceNum']['count']
+        # GLOBAL: self.device_num = result['value']['stat']['onlineDeviceNum']
+        # CN: self.device_num = result['value']['stat.onlineDeviceNum']['count']
+        self.device_num = result['value']['stat']['onlineDeviceNum']
         return self.device_num
-        
+
 
 def parse_args():
     """Define arguments"""
@@ -134,6 +136,12 @@ for instance in get_connectors(args.profile, args.region, args.module_version):
     print "--------------------"
     connectors.append(connector)
 
+total_device_num = 0
+connector_num = len(connectors)
+for connector in connectors:
+    total_device_num += connector.device_num
+
+
 connectors.sort(key=lambda x: x.name)
 groups = list()
 group = list()
@@ -148,7 +156,7 @@ for connector in connectors:
         size += connector.device_num
         group.append(connector)
 groups.append(group)
-    
+
 print "===================="
 
 for i, g in enumerate(groups):
@@ -163,7 +171,8 @@ for i, g in enumerate(groups):
             print "--------------------"
             sum += connector.device_num
 
-            cmd = "curl http://{IP}:{PORT}/jolokia/read/{MODULE_NAME}:name=StatJmx/stat".format(IP=connector.ip, PORT=PORT, MODULE_NAME=MODULE_NAME)
+            step_size = int(connector.device_num / 3000)
+            cmd = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/1000".format(IP=connector.ip, PORT=PORT, MODULE_NAME=MODULE_NAME, STEP_SIZE=step_size)
             fp.write(cmd)
             fp.write("\n")
         print "--------------------"
