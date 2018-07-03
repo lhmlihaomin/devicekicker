@@ -26,9 +26,9 @@ import sys
 import boto3
 
 PORT = 8778
-MODULE_NAME = "connector"
 SLEEP_MS = 1000
 BATCH_SIZE = 1800000
+TIMEOUT = 3000
 
 # CN: stat_url_format = ???
 stat_url_format = "http://{IP}:{PORT}/jolokia/read/{MODULE_NAME}:name=StatJmx/stat"
@@ -171,10 +171,11 @@ for i, g in enumerate(groups):
             print "--------------------"
             sum += connector.device_num
 
-            step_size = int(connector.device_num / 3000)
-            cmd = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/1000".format(IP=connector.ip, PORT=PORT, MODULE_NAME=MODULE_NAME, STEP_SIZE=step_size)
+            step_size = int(connector.device_num / TIMEOUT)
+            cmd = "curl http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/1000".format(IP=connector.ip, PORT=PORT, MODULE_NAME=MODULE_NAME, STEP_SIZE=step_size)
             fp.write(cmd)
             fp.write("\n")
+            fp.write("echo ''\n")
         print "--------------------"
         print "SUM: "+str(sum)
 
