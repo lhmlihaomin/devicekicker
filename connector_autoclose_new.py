@@ -26,7 +26,6 @@ import sys
 import boto3
 
 PORT = 8778
-MODULE_NAME = "connector"
 SLEEP_MS = 1000
 BATCH_SIZE = 1800000
 
@@ -41,7 +40,8 @@ class Connector(object):
     """
     Information about a connector server.
     """
-    def __init__(self, instance):
+    def __init__(self, instance, module_name):
+        self.module_name = module_name
         self.instance_id = instance.id
         self.ip = instance.private_ip_address
         self.device_num = 0
@@ -51,7 +51,7 @@ class Connector(object):
                 self.name = tag['Value']
 
     def get_online_device_number(self):
-        url = stat_url_format.format(IP=self.ip, PORT=PORT, MODULE_NAME=MODULE_NAME)
+        url = stat_url_format.format(IP=self.ip, PORT=PORT, MODULE_NAME=self.module_name)
         response = requests.get(url)
         result = json.loads(response.text)
         # GLOBAL: self.device_num = result['value']['stat']['onlineDeviceNum']
@@ -65,15 +65,16 @@ def parse_args():
     argparser = argparse.ArgumentParser(description="Close connector device connections.")
     argparser.add_argument('-p', '--profile', help="AWSCLi profile")
     argparser.add_argument('-r', '--region', help="Region name")
-    argparser.add_argument('-m', '--module-version', help="Connector module version")
+    argparser.add_argument('-m', '--module', help="Connector module name")
+    argparser.add_argument('-v', '--version', help="Module version")
     argparser.add_argument('-e', '--elb', nargs="+", help="Load balancer names")
     argparser.add_argument('-b', '--batch-size', type=int, help="Number of devices to kick in one batch")
     args = argparser.parse_args()
     return args
 
 
-def get_connectors(profile, region, version):
-    ec2_prefix = "prd-"+MODULE_NAME+"-"+version
+def get_connectors(profile, region, module_name, version):
+    ec2_prefix = "prd-"+module_name+"-"+version
     filters = [
         {'Name': 'tag:Name', 'Values': [ec2_prefix+"*"]},
         {'Name': 'instance-state-name', 'Values': ['running']}
@@ -83,8 +84,8 @@ def get_connectors(profile, region, version):
     return ec2.instances.filter(Filters=filters)
 
 
-def get_connector_addresses(profile, region, version):
-    ec2_prefix = "prd-"+MODULE_NAME+"-"+version
+def get_connector_addresses(profile, region, module_name, version):
+    ec2_prefix = "prd-"+module_name+"-"+version
     filters = [
         {'Name': 'tag:Name', 'Values': [ec2_prefix+"*"]},
         {'Name': 'instance-state-name', 'Values': ['running']}
@@ -126,8 +127,8 @@ args = parse_args()
 #    print num
 
 connectors = []
-for instance in get_connectors(args.profile, args.region, args.module_version):
-    connector = Connector(instance)
+for instance in get_connectors(args.profile, args.region, args.module, args.version):
+    connector = Connector(instance, args.module)
     #print connector.instance_id
     #print connector.ip
     connector.get_online_device_number()
@@ -172,9 +173,11 @@ for i, g in enumerate(groups):
             sum += connector.device_num
 
             step_size = int(connector.device_num / 3000)
-            cmd = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/1000".format(IP=connector.ip, PORT=PORT, MODULE_NAME=MODULE_NAME, STEP_SIZE=step_size)
+            cmd = "curl http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/1000".format(IP=connector.ip, PORT=PORT, MODULE_NAME=args.module, STEP_SIZE=step_size)
             fp.write(cmd)
             fp.write("\n")
+            fp.write("echo ''\n")
         print "--------------------"
         print "SUM: "+str(sum)
+
 
