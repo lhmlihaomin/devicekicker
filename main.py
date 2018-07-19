@@ -15,6 +15,8 @@ DB_USER = "root"
 DB_PASS = "root"
 DB_NAME = "prd_deployer"
 
+PORT = 8778
+
 #KICK_TPS = 600
 KICK_TPS = 600
 # PERIOD = 50
@@ -90,6 +92,9 @@ class RealConnector(object):
         self.close_url_format = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/{INTERVAL}"
         self.module_name = module_name
         self.device_num = 0
+        #----------
+        self.device_num = random.randint(100000, 150000)
+        #----------
 
         if type(instance) is dict:
             self._init_with_dict(instance)
@@ -109,19 +114,25 @@ class RealConnector(object):
     def get_online_device_number(self):
         """Call JMX 'stat' to get onlineDeviceNum"""
         url = self.stat_url_format.format(IP=self.ip, PORT=PORT, MODULE_NAME=self.module_name)
+        #----------
+        print "Requesting URL: "+url
+        #----------
+        """
         response = requests.get(url)
         result = json.loads(response.text)
         # GLOBAL: self.device_num = result['value']['stat']['onlineDeviceNum']
         # CN: self.device_num = result['value']['stat.onlineDeviceNum']['count']
         self.device_num = result['value']['stat']['onlineDeviceNum']
+        """
         return self.device_num
 
     def close_all_connections(self):
         """Call JMX 'exec/closeAll' to kick all connected devices"""
-        step_size = float(self.device_num) / PERIOD / 60.0
+        step_size = int( float(self.device_num) / PERIOD / 60.0 + 0.5 )
         url = self.close_url_format.format(IP=self.ip, PORT=PORT, MODULE_NAME=self.module_name, STEP_SIZE=step_size, INTERVAL=1000)
-        print url
-        
+        #----------
+        print "Requesting URL: "+url
+        #----------
 
 
 class FakeConnector(object):
@@ -155,13 +166,15 @@ class FakeConnector(object):
             now = time.time()
             self.device_num -= (now - self.last_access_time) * random.randint(50, 60)
             self.last_access_time = now
+        if self.device_num < 0:
+            self.device_num = 0
         return self.device_num
 
     def close_all_connections(self):
         self.close_flag = True
         self.close_start_time = time.time()
         self.last_access_time = self.close_start_time
-        pass
+        return True
 
 
 def get_elb_instances(elb, args):
@@ -245,7 +258,8 @@ elb_instance_ids = get_elb_instances(elbs, args)
 instances_old_module = list()
 for instance in instances:
     if instance['instance_id'] in elb_instance_ids:
-        instances_old_module.append(Connector(instance, args.module))
+        #instances_old_module.append(FakeConnector(instance, args.module))
+        instances_old_module.append(RealConnector(instance, args.module))
 
 # Group instances according to device number:
 instances_to_kick = list()
