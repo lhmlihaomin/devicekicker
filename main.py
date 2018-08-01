@@ -92,9 +92,6 @@ class RealConnector(object):
         self.close_url_format = "http://{IP}:{PORT}/jolokia/exec/{MODULE_NAME}:name=Controller/closeAll/{STEP_SIZE}/{INTERVAL}"
         self.module_name = module_name
         self.device_num = 0
-        #----------
-        self.device_num = random.randint(100000, 150000)
-        #----------
 
         if type(instance) is dict:
             self._init_with_dict(instance)
@@ -114,16 +111,11 @@ class RealConnector(object):
     def get_online_device_number(self):
         """Call JMX 'stat' to get onlineDeviceNum"""
         url = self.stat_url_format.format(IP=self.ip, PORT=PORT, MODULE_NAME=self.module_name)
-        #----------
-        print "Requesting URL: "+url
-        #----------
-        """
         response = requests.get(url)
         result = json.loads(response.text)
         # GLOBAL: self.device_num = result['value']['stat']['onlineDeviceNum']
         # CN: self.device_num = result['value']['stat.onlineDeviceNum']['count']
         self.device_num = result['value']['stat']['onlineDeviceNum']
-        """
         return self.device_num
 
     def close_all_connections(self):
@@ -133,6 +125,8 @@ class RealConnector(object):
         #----------
         print "Requesting URL: "+url
         #----------
+        
+        response = requests.get(url)
 
 
 class FakeConnector(object):
