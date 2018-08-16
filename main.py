@@ -47,12 +47,12 @@ def get_old_module(args):
     c = conn.cursor()
 
     sql = """
-SELECT id, load_balancer_names FROM updateplanmgr_module WHERE 
-name='{0}' AND 
-current_version='{1}' AND 
+SELECT id, load_balancer_names FROM updateplanmgr_module WHERE
+name='{0}' AND
+current_version='{1}' AND
 profile_id=(
   SELECT id FROM awscredentialmgr_awsprofile WHERE name='{2}'
-) AND 
+) AND
 region_id=(
   SELECT id FROM awscredentialmgr_awsregion WHERE name='{3}'
 )"""
@@ -125,7 +125,7 @@ class RealConnector(object):
         #----------
         print "Requesting URL: "+url
         #----------
-        
+
         response = requests.get(url)
 
 
@@ -171,27 +171,36 @@ class FakeConnector(object):
         return True
 
 
-def get_elb_instances(elb, args):
-    # Remove this line:
-    return ['i-00251efa09077080c', 'i-00918f726f10c15ab', 'i-0403ec61a2ef37e87', 'i-071228706f1310042', 'i-0a052b564af186fb9', 'i-0f3424c25212b39b9']
+def get_elb_instances(elb_names, args):
     """Get instance ids registered with this ELB"""
     s = boto3.Session(profile_name=args.profile, region_name=args.region)
     elb = s.client('elb')
     result = elb.describe_load_balancers(
-        LoadBalancerNames=['prd-elb-connectorNC-aps1-0']
+        LoadBalancerNames=elb_names
     )
     result = result['LoadBalancerDescriptions'][0]
     elb_instance_ids = [x['InstanceId'] for x in result['Instances']]
+    print elb_instance_ids
     return elb_instance_ids
 
 
 
-def deregister_old_instances(elbs, instances):
+def deregister_old_instances(elbs, instances, args):
     """Deregister old instances from ELB(s), and record time"""
+    s = boto3.Session(profile_name=args.profile, region_name=args.region)
+    elb = s.client('elb')
     for elb in elbs:
         print "[INFO] Removing these instances from ELB {0}: ".format(elb)
+        instance_ids = []
         for instance in instances:
             print "    {0} ({1})".format(instance.name, instance.ip)
+            instance_ids.append({'InstanceId': instance.instance_id})
+        """
+        elb.deregister_instances_from_load_balancer(
+            LoadBalancerName=elb,
+            Instances=instance_ids
+        )
+        """
 
 
 def register_old_instances(elbs, instances):
@@ -267,10 +276,15 @@ for instance in instances_old_module:
     else:
         instances_to_kick.append(instance)
 
+for instance in instances_to_kick:
+    print "{0}: {1} ({2})".format(instance.name, instance.device_num, instance.ip)
+if "y" != raw_input("Continue? "):
+    exit()
+
 create_output_file(instances_to_kick)
 
 # Remove old instances from ELBs:
-deregister_old_instances(elbs, instances_to_kick)
+deregister_old_instances(elbs, instances_to_kick, args)
 start_time = time.time()
 
 # Send "closeAll" request to servers:
