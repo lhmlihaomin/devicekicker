@@ -9,6 +9,7 @@ import random
 
 
 class DeviceNum(models.Model):
+    _total = 0
     _num = 0
     _timestamp = 0.0
     _closing = False
@@ -20,6 +21,7 @@ class DeviceNum(models.Model):
         with cls._lock:
             cls._closing = False
             cls._num = num
+            cls._total = num
             
     @classmethod
     def initiate_close_all(cls, batch):
@@ -37,7 +39,7 @@ class DeviceNum(models.Model):
             return cls._num
         else:
             period = time.time() - cls._timestamp
-            num = cls._num - int(period) * cls._batch
+            num = cls._total - int(period) * cls._batch
             if num < 0:
                 cls._num = 0
                 cls._closing = False
@@ -52,5 +54,6 @@ class DeviceNum(models.Model):
             'num': cls._num,
             'timestamp': cls._timestamp,
             'closing': cls._closing,
+            'batch': cls._batch,
         }
         return json.dumps(d, indent=4)

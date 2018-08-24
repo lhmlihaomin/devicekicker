@@ -11,8 +11,8 @@ from onlinedevicenum.models import DeviceNum
 
 ret_tpl = {
     'value': {
-        'stat.onlineDeviceNum': {
-            'count': 0
+        'stat': {
+            'onlineDeviceNum': 0
         }
     }
 }
@@ -20,7 +20,7 @@ ret_tpl = {
 def stat(request):
     num = DeviceNum.get_num()
     ret = ret_tpl
-    ret['value']['stat.onlineDeviceNum']['count'] = num
+    ret['value']['stat']['onlineDeviceNum'] = num
     return HttpResponse(json.dumps(ret), content_type='text/plain')
 
 
@@ -31,7 +31,7 @@ def set_device_num(request, num):
         num = int(num)
     DeviceNum.set_num(num)
     ret = ret_tpl
-    ret['value']['stat.onlineDeviceNum']['count'] = num
+    ret['value']['stat']['onlineDeviceNum'] = num
     return HttpResponse(json.dumps(ret), content_type='text/plain')
 
 
